@@ -15,7 +15,7 @@ BOT_NICK = 'kenaan7'
 BOT_PASS = 'abcdefg'
 
 # Maximum number of characters to put into a single IRC message
-LINE_LENGTH = 160
+LINE_LENGTH = 400
 
 # Delay, in seconds, between IRC messages
 LINE_RATE = 1.0
