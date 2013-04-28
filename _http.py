@@ -163,7 +163,7 @@ def parse(url, defaultPort=None):
     of these are C{str} instances except for port, which is an C{int}.
     """
     url = url.strip()
-    parsed = http.urlparse(url)
+    parsed = urlparse.urlparse(url)
     scheme = parsed[0]
     path = urlparse.urlunparse(('','')+parsed[2:])
     if defaultPort is None:
