@@ -28,7 +28,7 @@ COMMIT_RULES = [
 # Two-tuples of (tracker URL, channel) defining the rules for announcing
 # ticket changes.
 TICKET_RULES = [
-    ('http://example.com/trac/', ['#bottest'])]
+    ('tcp:host=localhost:port=1352', ['#bottest'])]
 
 # Two-tuples of (project name, list of channels) defining the rules for
 # announcing active Launchpad merge proposals.

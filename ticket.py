@@ -1,12 +1,12 @@
 
-import time, urlparse
+import urlparse
 
 from twisted.internet import reactor, threads, task
 from twisted.spread import pb
 from twisted.python import log
-from twisted.web import error, http
+from amptrac.client import connect, Client
 
-import config, _http
+import config
 
 
 class Ticket(pb.Copyable, pb.RemoteCopy):
@@ -70,14 +70,14 @@ class TicketReview:
 
     def privmsg(self, user, channel, message):
         if 'review branches' in message:
-            for (url, channels) in config.TICKET_RULES:
+            for (port, channels) in config.TICKET_RULES:
                 for existing_channel in channels:
                     if existing_channel == channel:
-                        d = self.reportReviewTickets(url, channel)
+                        d = self.reportReviewTickets(port, channel)
                         d.addErrback(
                             log.err,
                             "Failed to satisfy review ticket request from "
-                            "%r to %r" % (url, channel))
+                            "%r to %r" % (port, channel))
 
 
     def connectionLost(self, reason):
@@ -89,13 +89,13 @@ class TicketReview:
         """
         Call L{reportReviewTickets} with each element of L{config.TICKET_RULES}.
         """
-        for (url, channels) in config.TICKET_RULES:
+        for (port, channels) in config.TICKET_RULES:
             for channel in channels:
-                d = self.reportReviewTickets(url, channel)
+                d = self.reportReviewTickets(port, channel)
                 d.addErrback(
                     log.err,
                     "Failed to report review tickets from %r to %r" % (
-                        url, channel))
+                        port, channel))
 
         # XXX It's possible this works, but I've never tested it because
         # installing launchpadlib is implausibly difficult and I'm sick of
@@ -150,7 +150,7 @@ class TicketReview:
                 self.msg(channel, encoded)
 
 
-    def reportReviewTickets(self, trackerRoot, channel):
+    def reportReviewTickets(self, port, channel):
         """
         Retrieve the list of tickets currently up for review from the
         tracker at the given location and report them to the given channel.
@@ -163,105 +163,9 @@ class TicketReview:
 
         @return: A Deferred which fires when the report has been completed.
         """
-        d = self._getReviewTickets(trackerRoot)
+        d = connect(reactor, port).addCallback(Client.reviewTickets)
         d.addCallback(self._reportReviewTickets, channel)
         return d
-
-
-    def _getReviewTickets(self, trackerRoot):
-        """
-        Retrieve the list of tickets currently up for review from the
-        tracker at the given location.
-
-        @return: A Deferred which fires with a C{list} of C{int}s.  Each
-        element is the number of a ticket up for review.
-        """
-        location = trackerRoot + (
-            "query?"
-            "status=new&"
-            "status=assigned&"
-            "status=reopened&"
-            "format=tab&"
-            "keywords=~review"
-            "&order=priority")
-        headers = {}
-        scheme, netloc, url, params, query, fragment = urlparse.urlparse(location)
-        credentials = None
-        if '@' in netloc:
-            credentials, netloc = netloc.split('@', 1)
-            location = urlparse.urlunparse((
-                scheme, netloc, url, params, query, fragment))
-        factory = _http.getPage(location, headers=headers)
-        if credentials is not None:
-            factory.deferred.addErrback(self._handleUnauthorized, factory, location, credentials)
-        factory.deferred.addCallback(self._parseReviewTicketQuery)
-        return factory.deferred
-
-
-    def _handleUnauthorized(self, err, factory, location, credentials):
-        """
-        Check failures to see if they are due to a 401 response and attempt to
-        authenticate if they are.
-        """
-        err.trap(error.Error)
-        if int(err.value.status) != http.UNAUTHORIZED:
-            return err
-
-        challenge = factory.response_headers.get('www-authenticate', [None])[0]
-        if challenge is None:
-            return err
-
-        challenge = dict(
-            _http.parseWWWAuthenticate(_http.tokenize([challenge])))
-
-        challenge = challenge.get('digest')
-        if challenge is None:
-            return err
-
-        scheme, netloc, url, params, query, fragment = urlparse.urlparse(location)
-        uri = urlparse.urlunparse((None, None, url, params, query, None))
-
-        response = challenge.get('response')
-        nonce = challenge.get('nonce')
-        cnonce = str(time.time())
-        nc = '00000001'
-        realm = challenge.get('realm')
-        algo = challenge.get('algorithm', 'md5').lower()
-        qop = challenge.get('qop', 'auth')
-
-        username, password = credentials.split(':')
-
-        response = _http.calcResponse(
-            _http.calcHA1(algo, username, realm, password, nonce, cnonce),
-            _http.calcHA2(algo, 'GET', uri, qop, None),
-            algo, nonce, nc, cnonce, qop)
-
-
-        challenge['username'] = username
-        challenge['uri'] = uri
-        challenge['response'] = response
-        challenge['cnonce'] = cnonce
-        challenge['nc'] = nc
-
-        headers = {
-            'authorization': 'Digest ' + ', '.join([
-                    '%s="%s"' % x for x in challenge.iteritems()])}
-        factory = _http.getPage(location, headers=headers)
-        return factory.deferred
-
-
-    def _parseReviewTicketQuery(self, result):
-        """
-        Split up a multi-line tab-delimited set of ticket information and
-        return two-tuples of ticket numbers as integers and owners as
-        strings.
-
-        The first line of input is expected to be column definitions and is
-        skipped.
-        """
-        for line in result.splitlines()[1:]:
-            parts = line.split('\t')
-            yield int(parts[0]), parts[4]
 
 
     def _reportReviewTickets(self, reviewTicketInfo, channel):
@@ -279,11 +183,11 @@ class TicketReview:
 
     def _formatTicketNumbers(self, reviewTicketInfo):
         tickets = []
-        for (id, owner) in reviewTicketInfo:
-            if owner:
-                tickets.append('#%d (%s)' % (id, owner))
+        for ticket in reviewTicketInfo:
+            if ticket['owner']:
+                tickets.append(str('#%(id)d (%(owner)s)' % ticket))
             else:
-                tickets.append('#%d' % (id,))
+                tickets.append('#%(id)d' % ticket)
         return ', '.join(tickets)
 
 
