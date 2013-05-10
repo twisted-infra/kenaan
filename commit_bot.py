@@ -1,6 +1,5 @@
-
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor
 from twisted.spread import pb
 
 import config
@@ -14,12 +13,14 @@ class Notifications(pb.Root, commit.RepositoryChangeListener, ticket.TicketChang
 
 
 class CommitBot(irc.IRCClient, commit.RepositoryChange, ticket.TicketChange, ticket.TicketReview, alert.MuninAlert, message.Message):
-    nickname = config.BOT_NICK
-    password = config.BOT_PASS
 
     lineRate = config.LINE_RATE
 
     notificationPort = None
+
+    def __init__(self, nickname, password):
+        self.nickname = nickname
+        self.password = password
 
     def connectionLost(self, reason):
         if self.notificationPort is not None:
@@ -61,14 +62,3 @@ class CommitBot(irc.IRCClient, commit.RepositoryChange, ticket.TicketChange, tic
                 pass
             else:
                 f(self, user, channel, message)
-
-
-
-class CommitFactory(protocol.ReconnectingClientFactory):
-    protocol = CommitBot
-
-
-def main():
-    cf = CommitFactory()
-    reactor.connectTCP(config.IRC_SERVER, config.IRC_PORT, cf)
-    reactor.run()

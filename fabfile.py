@@ -2,7 +2,10 @@
 Support for DNS service installation and management.
 """
 
-from fabric.api import run, settings
+from fabric.api import run, settings, env, cd, abort, puts, put
+from fabric.contrib import files
+
+from twisted.python.filepath import FilePath
 
 from braid import git, cron
 from braid.twisted import service
@@ -26,6 +29,35 @@ class Kenaan(service.Service):
                 run('ln -nsf {1}/{0} {2}/{0}'.format(bin, self.configDir, self.binDir))
             self.task_update()
             cron.install(self.serviceUser, '{}/crontab'.format(self.configDir))
+            if env.get('installTestData'):
+                self.task_installTestData()
+            elif env.get('installPrivateData'):
+                self.task_installPrivateData()
+
+
+    def task_installTestData(self, force=None):
+        """
+        Do test environment setup (with fake passwords, etc).
+        """
+        if env.get('environment') == 'production':
+           abort("Don't use testInit in production.")
+
+        with settings(user=self.serviceUser), cd(self.configDir):
+            if force or not files.exists('private.py'):
+                puts('Using sample private.py')
+                run('cp private.py.sample private.py')
+
+
+    def task_installPrivateData(self, private='private.py'):
+        """
+        Install private config.
+        """
+        with settings(user=self.serviceUser):
+            if FilePath(private).exists():
+                put(private, '{}/private.py', mode=0600)
+            else:
+                abort('Missing private config.')
+
 
     def task_update(self):
         """

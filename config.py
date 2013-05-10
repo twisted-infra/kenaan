@@ -4,16 +4,6 @@ BOT_HOST = 'localhost'
 # Port number of same
 BOT_PORT = 15243
 
-# Hostname of the IRC server to which we will connect
-IRC_SERVER = 'irc.freenode.net'
-IRC_PORT = 6667
-
-# Nickname to use on that IRC server
-BOT_NICK = 'kenaan7'
-
-# Password for this nickname
-BOT_PASS = 'abcdefg'
-
 # Maximum number of characters to put into a single IRC message
 LINE_LENGTH = 400
 

@@ -1,7 +1,14 @@
+from functools import partial
 from twisted.application import service, internet
+from twisted.intenet.porotocol import ReconntectingClientFactory
 
-import config, commit, commit_bot
+import private as config
+from commit_bot import CommitBot
 
-application = service.Application('Commit-Bot')
-svc = internet.TCPClient(config.IRC_SERVER, config.IRC_PORT, commit_bot.CommitFactory())
+application = service.Application('kenaan')
+
+factory = ReconntectingClientFactory.forProtocol(
+		partial(CommitBot, nickname=config.NICKNAME, password=config.PASSWORD))
+
+svc = internet.TCPClient(config.IRC_SERVER, config.IRC_PORT, factory)
 svc.setServiceParent(application)
