@@ -24,9 +24,9 @@ class Kenaan(service.Service):
         self.bootstrap()
 
         with settings(user=self.serviceUser):
-            run('ln -nsf {}/start {}/start'.format(self.configDir, self.binDir))
+            run('/bin/ln -nsf {}/start {}/start'.format(self.configDir, self.binDir))
             for bin in ['alert', 'commit', 'message', 'ticket']:
-                run('ln -nsf {1}/{0} {2}/{0}'.format(bin, self.configDir, self.binDir))
+                run('/bin/ln -nsf {1}/{0} {2}/{0}'.format(bin, self.configDir, self.binDir))
             self.task_update()
             cron.install(self.serviceUser, '{}/crontab'.format(self.configDir))
             if env.get('installTestData'):
@@ -45,7 +45,7 @@ class Kenaan(service.Service):
         with settings(user=self.serviceUser), cd(self.configDir):
             if force or not files.exists('private.py'):
                 puts('Using sample private.py')
-                run('cp private.py.sample private.py')
+                run('/bin/cp private.py.sample private.py')
 
 
     def task_installPrivateData(self, private='private.py'):
