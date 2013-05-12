@@ -1,5 +1,5 @@
 """
-Support for DNS service installation and management.
+Support for kenaan service installation and management.
 """
 
 from fabric.api import run, settings, env, cd, abort, puts, put
@@ -65,6 +65,7 @@ class Kenaan(service.Service):
         """
         with settings(user=self.serviceUser):
             git.branch('https://github.com/twisted-infra/kenaan', self.configDir)
+            self.task_restart()
 
 
 globals().update(Kenaan('kenaan').getTasks())
