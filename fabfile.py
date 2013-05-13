@@ -27,7 +27,7 @@ class Kenaan(service.Service):
             run('/bin/ln -nsf {}/start {}/start'.format(self.configDir, self.binDir))
             for bin in ['alert', 'commit', 'message', 'ticket']:
                 run('/bin/ln -nsf {1}/{0} {2}/{0}'.format(bin, self.configDir, self.binDir))
-            self.task_update()
+            self.update()
             cron.install(self.serviceUser, '{}/crontab'.format(self.configDir))
             if env.get('installTestData'):
                 self.task_installTestData()
@@ -59,13 +59,20 @@ class Kenaan(service.Service):
                 abort('Missing private config.')
 
 
-    def task_update(self):
+    def update(self):
         """
         Update config.
         """
         with settings(user=self.serviceUser):
             git.branch('https://github.com/twisted-infra/kenaan', self.configDir)
-            self.task_restart()
+
+
+    def task_update(self):
+        """
+        Update config and restart.
+        """
+        self.update()
+        self.task_restart()
 
 
 globals().update(Kenaan('kenaan').getTasks())
