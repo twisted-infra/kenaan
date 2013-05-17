@@ -54,7 +54,7 @@ class Kenaan(service.Service):
         """
         with settings(user=self.serviceUser):
             if FilePath(private).exists():
-                put(private, '{}/private.py', mode=0600)
+                put(private, '{}/private.py'.format(self.configDir), mode=0600)
             else:
                 abort('Missing private config.')
 
