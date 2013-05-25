@@ -13,21 +13,28 @@ LINE_RATE = 1.0
 # Three-tuples of (repository path, filename expression, channel) defining
 # the rules for announcing commit messages.
 COMMIT_RULES = [
-    ('/svn/Divmod', '.*', ['#divmod.test'])]
+    ('/svn/Twisted', '.*', ['#twisted', '#twisted-dev']),
+    ('/svn/Twisted', '.*/(twisted|doc)/web2?/.*', ['#twisted.web', '#twisted-dev']),
+    ('/svn/WebSite', '.*', ['#twisted', '#twisted-dev']),
+    ('/svn', 'pypy/.*', ['#pypy'])]
 
 # Two-tuples of (tracker URL, channel) defining the rules for announcing
 # ticket changes.
 TICKET_RULES = [
-    ('http://twistedmatrx.com/trac/', ['#bottest'])]
-
-# Two-tuples of (project name, list of channels) defining the rules for
-# announcing active Launchpad merge proposals.
-LAUNCHPAD_MERGE_PROPOSAL_RULES = [
-    ('Example', ['#bottest']),
+    ('http://twistedmatrix.com/trac/', ['#twisted', '#twisted-dev']),
     ]
 
 # The channel to which to send alerts.
-ALERT_CHANNEL = '#bottest'
+ALERT_CHANNEL = '#twisted-admin'
 
-# The directory in which log files will be written
-LOG_ROOT = '~'
+# The directory in which log files will be written.  Most users can
+# write to their own home directory, but some can't - eg www-data.
+# So, give each user a directory in /tmp.  They can't use /tmp itself
+# because users won't be able to open log files written by other
+# users.
+import os, pwd, tempfile
+LOG_ROOT = os.path.join(
+    tempfile.gettempdir(),
+    'kenaan-logs-' + pwd.getpwuid(os.getuid()).pw_name)
+if not os.path.isdir(LOG_ROOT):
+    os.makedirs(LOG_ROOT)
