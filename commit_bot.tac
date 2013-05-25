@@ -12,7 +12,7 @@ from commit_bot import CommitBot
 application = service.Application('kenaan')
 
 factory = ReconnectingClientFactory.forProtocol(
-		partial(CommitBot, nickname=config.NICKNAME, password=config.PASSWORD))
+		partial(CommitBot, nickname=config.BOT_NICK, password=config.BOT_PASS))
 
 svc = internet.TCPClient(config.IRC_SERVER, config.IRC_PORT, factory)
 svc.setServiceParent(application)
