@@ -6,6 +6,7 @@ from fabric.api import run, settings, env, cd, abort, puts, put
 from fabric.contrib import files
 
 from twisted.python.filepath import FilePath
+from twisted.python.util import sibpath
 
 from braid import git, cron
 from braid.twisted import service
@@ -48,7 +49,7 @@ class Kenaan(service.Service):
                 run('/bin/cp private.py.sample private.py')
 
 
-    def task_installPrivateData(self, private='private.py'):
+    def task_installPrivateData(self, private=sibpath(__file__, 'private.py')):
         """
         Install private config.
         """
