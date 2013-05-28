@@ -1,5 +1,5 @@
 # Hostname where persistent bot process is listening
-BOT_HOST = 'localhost'
+BOT_HOST = 'twistedmatrix.com'
 
 # Port number of same
 BOT_PORT = 15243
