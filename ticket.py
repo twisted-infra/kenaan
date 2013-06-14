@@ -38,7 +38,7 @@ class TicketChangeListener:
 
 class TicketChange:
     ticketMessageFormat = (
-        'new %(component)s %(kind)s #%(id)d by %(author)s: %(subject)s')
+        'new %(component)s %(kind)s https://tm.tl/#%(id)d by %(author)s: %(subject)s')
 
     def ticket(self, ticket):
         for (url, channels) in config.TICKET_RULES:
