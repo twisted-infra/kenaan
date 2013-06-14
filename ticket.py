@@ -1,10 +1,14 @@
 
 import urlparse
 
-from twisted.internet import reactor, task
+from twisted.internet import reactor, task, defer
 from twisted.spread import pb
-from twisted.python import log
-from amptrac import client as amptrac
+from twisted.python import log, failure
+try:
+    from amptrac import client as amptrac
+except ImportError as e:
+    amptrac = None
+    amptracError = e
 
 import config
 
@@ -111,6 +115,11 @@ class TicketReview:
 
         @return: A Deferred which fires when the report has been completed.
         """
+        if amptrac is None:
+            f = failure.Failure(amptracError)
+            log.err(f, "amptrac not present, can't report tickets.")
+            return defer.fail(f)
+
         d = amptrac.connect(reactor)
         d.addCallback(self._getReviewTickets)
         d.addCallback(self._reportReviewTickets, channel)
