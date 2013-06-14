@@ -8,7 +8,7 @@ from fabric.contrib import files
 from twisted.python.filepath import FilePath
 from twisted.python.util import sibpath
 
-from braid import git, cron
+from braid import git, cron, pip
 from braid.twisted import service
 
 # TODO: Move these somewhere else and make them easily extendable
@@ -25,6 +25,7 @@ class Kenaan(service.Service):
         self.bootstrap()
 
         with settings(user=self.serviceUser):
+            pip.install('amptrac')
             run('/bin/ln -nsf {}/start {}/start'.format(self.configDir, self.binDir))
             for bin in ['alert', 'commit', 'message', 'ticket']:
                 run('/bin/ln -nsf {1}/{0} {2}/{0}'.format(bin, self.configDir, self.binDir))

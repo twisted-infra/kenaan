@@ -1,12 +1,12 @@
 
-import time, urlparse
+import urlparse
 
-from twisted.internet import reactor, threads, task
+from twisted.internet import reactor, task
 from twisted.spread import pb
 from twisted.python import log
-from twisted.web import error, http
+from amptrac import client as amptrac
 
-import config, _http
+import config
 
 
 class Ticket(pb.Copyable, pb.RemoteCopy):
@@ -97,58 +97,6 @@ class TicketReview:
                     "Failed to report review tickets from %r to %r" % (
                         url, channel))
 
-        # XXX It's possible this works, but I've never tested it because
-        # installing launchpadlib is implausibly difficult and I'm sick of
-        # dealing with it.
-
-        # for (project, channels) in config.LAUNCHPAD_MERGE_PROPOSAL_RULES:
-        #     d = self.getMergeProposals(project)
-        #     d.addCallback(self.reportMergeProposals, project, channels)
-        #     d.addErrback(
-        #         log.err,
-        #         format="Problem with merge proposals for %(project)s",
-        #         project=project)
-
-
-    def getMergeProposals(self, project):
-        """
-        Retrieve all Launchpad merge proposals for the given project.
-
-        @return: A L{Deferred} which fires with a C{list} of C{unicode}, with
-            each element of the list describing one merge proposal.
-
-        @note: This uses the blocking launchpadlib library in a thread.
-        """
-        def blocking():
-            from launchpadlib.launchpad import Launchpad
-            results = []
-            pad = Launchpad.login_anonymously(
-                'Twisted Project Commit Bot', 'production', '.')
-            proposals = list(pad.projects[u'divmod.org'].getMergeProposals())
-            for proposal in proposals:
-                branch = proposal.source_branch
-                bugs = list(branch.linked_bugs)
-                if bugs:
-                    results.append(
-                        u'lp:%(id)d %(branch)s' % dict(
-                            id=bugs[0].id, branch=branch.name))
-            return results
-        return threads.deferToThread(blocking)
-
-
-    def reportMergeProposals(self, proposals, project, channels):
-        """
-        If there are any merge proposal for a project, report them in the given
-        channels.
-        """
-        if proposals:
-            message = u"%s merge proposals: %s" % (
-                project, u'; '.join(proposals))
-            encoded = message.encode('utf-8')
-            for channel in channels:
-                self.join(channel)
-                self.msg(channel, encoded)
-
 
     def reportReviewTickets(self, trackerRoot, channel):
         """
@@ -163,12 +111,13 @@ class TicketReview:
 
         @return: A Deferred which fires when the report has been completed.
         """
-        d = self._getReviewTickets(trackerRoot)
+        d = amptrac.connect(reactor)
+        d.addCallback(self._getReviewTickets)
         d.addCallback(self._reportReviewTickets, channel)
         return d
 
 
-    def _getReviewTickets(self, trackerRoot):
+    def _getReviewTickets(self, client):
         """
         Retrieve the list of tickets currently up for review from the
         tracker at the given location.
@@ -176,92 +125,7 @@ class TicketReview:
         @return: A Deferred which fires with a C{list} of C{int}s.  Each
         element is the number of a ticket up for review.
         """
-        location = trackerRoot + (
-            "query?"
-            "status=new&"
-            "status=assigned&"
-            "status=reopened&"
-            "format=tab&"
-            "keywords=~review"
-            "&order=priority")
-        headers = {}
-        scheme, netloc, url, params, query, fragment = urlparse.urlparse(location)
-        credentials = None
-        if '@' in netloc:
-            credentials, netloc = netloc.split('@', 1)
-            location = urlparse.urlunparse((
-                scheme, netloc, url, params, query, fragment))
-        factory = _http.getPage(location, headers=headers)
-        if credentials is not None:
-            factory.deferred.addErrback(self._handleUnauthorized, factory, location, credentials)
-        factory.deferred.addCallback(self._parseReviewTicketQuery)
-        return factory.deferred
-
-
-    def _handleUnauthorized(self, err, factory, location, credentials):
-        """
-        Check failures to see if they are due to a 401 response and attempt to
-        authenticate if they are.
-        """
-        err.trap(error.Error)
-        if int(err.value.status) != http.UNAUTHORIZED:
-            return err
-
-        challenge = factory.response_headers.get('www-authenticate', [None])[0]
-        if challenge is None:
-            return err
-
-        challenge = dict(
-            _http.parseWWWAuthenticate(_http.tokenize([challenge])))
-
-        challenge = challenge.get('digest')
-        if challenge is None:
-            return err
-
-        scheme, netloc, url, params, query, fragment = urlparse.urlparse(location)
-        uri = urlparse.urlunparse((None, None, url, params, query, None))
-
-        response = challenge.get('response')
-        nonce = challenge.get('nonce')
-        cnonce = str(time.time())
-        nc = '00000001'
-        realm = challenge.get('realm')
-        algo = challenge.get('algorithm', 'md5').lower()
-        qop = challenge.get('qop', 'auth')
-
-        username, password = credentials.split(':')
-
-        response = _http.calcResponse(
-            _http.calcHA1(algo, username, realm, password, nonce, cnonce),
-            _http.calcHA2(algo, 'GET', uri, qop, None),
-            algo, nonce, nc, cnonce, qop)
-
-
-        challenge['username'] = username
-        challenge['uri'] = uri
-        challenge['response'] = response
-        challenge['cnonce'] = cnonce
-        challenge['nc'] = nc
-
-        headers = {
-            'authorization': 'Digest ' + ', '.join([
-                    '%s="%s"' % x for x in challenge.iteritems()])}
-        factory = _http.getPage(location, headers=headers)
-        return factory.deferred
-
-
-    def _parseReviewTicketQuery(self, result):
-        """
-        Split up a multi-line tab-delimited set of ticket information and
-        return two-tuples of ticket numbers as integers and owners as
-        strings.
-
-        The first line of input is expected to be column definitions and is
-        skipped.
-        """
-        for line in result.splitlines()[1:]:
-            parts = line.split('\t')
-            yield int(parts[0]), parts[4]
+        return client.reviewTickets()
 
 
     def _reportReviewTickets(self, reviewTicketInfo, channel):
@@ -279,11 +143,11 @@ class TicketReview:
 
     def _formatTicketNumbers(self, reviewTicketInfo):
         tickets = []
-        for (id, owner) in reviewTicketInfo:
-            if owner:
-                tickets.append('#%d (%s)' % (id, owner))
+        for ticket in reviewTicketInfo:
+            if ticket['owner']:
+                tickets.append('#%d (%s)' % (ticket['id'], ticket['owner']))
             else:
-                tickets.append('#%d' % (id,))
+                tickets.append('#%d' % (ticket['id'],))
         return ', '.join(tickets)
 
 
