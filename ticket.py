@@ -135,7 +135,7 @@ class TicketReview:
         tickets = self._formatTicketNumbers(reviewTicketInfo)
         self.join(channel)
         if tickets:
-            message = "Tickets pending review: " + tickets
+            message = "Tickets pending review: https://tm.tl/" + tickets
         else:
             message = "No tickets pending review!"
         self.msg(channel, message)
