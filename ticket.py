@@ -148,7 +148,7 @@ class TicketReview:
                 tickets.append('#%d (%s)' % (ticket['id'], ticket['owner']))
             else:
                 tickets.append('#%d' % (ticket['id'],))
-        return ', '.join(tickets)
+        return ', '.join(tickets).encode('utf-8')
 
 
 
