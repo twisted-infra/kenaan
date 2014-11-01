@@ -120,7 +120,7 @@ class TicketReview:
             log.err(f, "amptrac not present, can't report tickets.")
             return defer.fail(f)
 
-        d = amptrac.connect(reactor)
+        d = amptrac.connect(reactor, port=amptrac.DEFAULT_AMP_ENDPOINT)
         d.addCallback(self._getReviewTickets)
         d.addCallback(self._reportReviewTickets, channel)
         return d
