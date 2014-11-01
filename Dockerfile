@@ -21,6 +21,9 @@ RUN mkdir "${RUN_DIR}"
 # ENV IRC_BOT_NICK
 # ENV IRC_BOT_PASS
 
+ENV IRC_BOT_PORT 12345
+EXPOSE 12345
+
 CMD \
     twistd \
     --nodaemon \

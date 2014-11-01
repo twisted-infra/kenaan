@@ -1,8 +1,10 @@
+import os
+
 # Hostname where persistent bot process is listening
 BOT_HOST = 'twistedmatrix.com'
 
 # Port number of same
-BOT_PORT = 15243
+BOT_PORT = int(os.environ.pop('IRC_BOT_PORT'))
 
 # Maximum number of characters to put into a single IRC message
 LINE_LENGTH = 400
