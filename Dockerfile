@@ -8,6 +8,7 @@ ENV RUN_DIR /var/run/ircbot
 RUN \
     apt-get update && \
     apt-get install -y python python-pip python-twisted && \
+    pip install amptrac && \
     apt-get autoclean
 
 # Install Kenaan
